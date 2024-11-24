@@ -2,17 +2,16 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# Webhook endpoint'i
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # Content-Type başlığını kontrol edin
-    content_type = request.headers.get('Content-Type')
-    if content_type in ['application/json', 'text/plain']:
+    # Content-Type başlığını kontrol edin (daha esnek hale getirilmiş)
+    content_type = request.headers.get('Content-Type', '').lower()
+    if 'application/json' in content_type:  # 'charset' gibi ek detayları da kabul eder
         try:
             # JSON formatındaki veriyi al
             data = request.json
         except Exception as e:
-            # Eğer JSON formatında değilse hata döndür
+            # JSON verisi alınamıyorsa hata döndür
             return f"Gönderilen veri JSON formatında değil! Hata: {str(e)}", 400
 
         # JSON verisinden bilgileri al
@@ -30,10 +29,9 @@ def webhook():
         else:
             print(f"Bilinmeyen işlem tipi: {action}")
         
-        # İşlem tamamlandığında başarılı yanıt döndür
         return "Webhook başarıyla işlendi!", 200
     else:
-        # Eğer desteklenmeyen bir Content-Type başlığı geldiyse hata döndür
+        # Desteklenmeyen Content-Type başlığı için hata döndür
         return "Unsupported content type! Lütfen JSON formatında veri gönderin.", 400
 
 # Ana dizin endpoint'i (tarayıcıdan kontrol için)
