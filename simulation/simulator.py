@@ -1,6 +1,4 @@
-# simulation/simulator.py
-
-from config.settings import LEVERAGE
+from config.settings import LEVERAGE, COMMISSION_RATE
 
 class Simulator:
     def __init__(self, starting_balance):
@@ -21,6 +19,12 @@ class Simulator:
         elif self.current_position == "short":
             profit = (self.entry_price - exit_price) * (self.balance * LEVERAGE) / self.entry_price
 
+        # Komisyon hesaplama (pozisyon açma ve kapatma)
+        total_commission = 2 * (self.balance * LEVERAGE) * COMMISSION_RATE
+
+        # Kar/zarar komisyonu düşerek güncelle
+        profit -= total_commission
+
         # Kar/zararı bakiyeye ekle
         self.balance += profit
 
@@ -34,5 +38,10 @@ class Simulator:
         """
         Yeni bir pozisyon aç.
         """
+        # Pozisyon açma komisyonu
+        opening_commission = (self.balance * LEVERAGE) * COMMISSION_RATE
+
+        # Pozisyonu başlatırken komisyonu düş
+        self.balance -= opening_commission
         self.current_position = position_type
         self.entry_price = entry_price
