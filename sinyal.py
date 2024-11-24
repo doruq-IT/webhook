@@ -3,12 +3,19 @@ from datetime import datetime
 import pytz
 from simulation.simulator import Simulator
 from simulation.transaction_log import log_transaction
+from simulation.account_manager import save_account_status, load_account_status
 from config.settings import STARTING_BALANCE
 
 app = Flask(__name__)
 
-# Simülatörü başlat
-simulator = Simulator(STARTING_BALANCE)
+# Durumu yükle
+account_status = load_account_status()
+simulator = Simulator(account_status["balance"])
+
+# Eğer açık bir pozisyon varsa yükle
+if account_status["position"]:
+    simulator.current_position = account_status["position"]
+    simulator.entry_price = account_status["entry_price"]
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -28,9 +35,8 @@ def webhook():
         # Zaman etiketini işleme
         if timestamp:
             try:
-                # ISO 8601 formatındaki zamanı UTC'den yerel saate dönüştür
                 utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                local_timezone = pytz.timezone("Europe/Istanbul")  # Yerel saat diliminizi buraya yazın
+                local_timezone = pytz.timezone("Europe/Istanbul")
                 local_time = utc_time.astimezone(local_timezone)
                 human_readable_time = local_time.strftime('%Y-%m-%d %H:%M:%S')
             except Exception as e:
@@ -59,15 +65,15 @@ def webhook():
         })
         print(f"{ticker} için {'LONG' if action == 'buy' else 'SHORT'} pozisyon açıldı. Fiyat: {price}. Zaman: {human_readable_time}")
 
+        # Güncel durumu kaydet
+        save_account_status(simulator.balance, simulator.current_position, simulator.entry_price)
+
         return {"balance": simulator.balance}, 200
     else:
         return "Unsupported content type! Lütfen JSON formatında veri gönderin.", 400
 
 @app.route('/log', methods=['GET'])
 def get_log():
-    """
-    İşlem geçmişini döndür.
-    """
     from simulation.transaction_log import get_transaction_log
     return {"transactions": get_transaction_log()}, 200
 
