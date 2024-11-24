@@ -1,5 +1,5 @@
 from flask import Flask, request
-import datetime
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -16,11 +16,15 @@ def webhook():
         ticker = data.get('ticker')
         price = data.get('price')
         action = data.get('action')
-        timestamp = data.get('timestamp')  # Zaman etiketi
+        timestamp = data.get('timestamp')  # ISO 8601 formatında zaman
 
-        # Zaman etiketini insan okunabilir formata dönüştür
+        # Zaman etiketini işleme
         if timestamp:
-            human_readable_time = datetime.datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+            try:
+                # ISO 8601 formatındaki zamanı insan okunabilir hale getir
+                human_readable_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).strftime('%Y-%m-%d %H:%M:%S')
+            except Exception as e:
+                human_readable_time = f"Zaman bilgisini dönüştürürken hata oluştu: {str(e)}"
         else:
             human_readable_time = "Zaman bilgisi mevcut değil"
 
