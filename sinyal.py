@@ -1,5 +1,6 @@
 from flask import Flask, request
 from datetime import datetime
+import pytz
 
 app = Flask(__name__)
 
@@ -21,8 +22,11 @@ def webhook():
         # Zaman etiketini işleme
         if timestamp:
             try:
-                # ISO 8601 formatındaki zamanı insan okunabilir hale getir
-                human_readable_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).strftime('%Y-%m-%d %H:%M:%S')
+                # ISO 8601 formatındaki zamanı UTC'den yerel saate dönüştür
+                utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                local_timezone = pytz.timezone("Europe/Istanbul")  # Yerel saat diliminizi buraya yazın
+                local_time = utc_time.astimezone(local_timezone)
+                human_readable_time = local_time.strftime('%Y-%m-%d %H:%M:%S')
             except Exception as e:
                 human_readable_time = f"Zaman bilgisini dönüştürürken hata oluştu: {str(e)}"
         else:
