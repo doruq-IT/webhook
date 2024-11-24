@@ -1,8 +1,14 @@
 from flask import Flask, request
 from datetime import datetime
 import pytz
+from simulation.simulator import Simulator
+from simulation.transaction_log import log_transaction
+from config.settings import STARTING_BALANCE
 
 app = Flask(__name__)
+
+# Simülatörü başlat
+simulator = Simulator(STARTING_BALANCE)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -15,7 +21,7 @@ def webhook():
 
         # JSON verisinden bilgileri al
         ticker = data.get('ticker')
-        price = data.get('price')
+        price = float(data.get('price'))
         action = data.get('action')
         timestamp = data.get('timestamp')  # ISO 8601 formatında zaman
 
@@ -32,19 +38,38 @@ def webhook():
         else:
             human_readable_time = "Zaman bilgisi mevcut değil"
 
-        # Gelen sinyale göre işlem yap
-        if action == "buy":
-            print(f"{ticker} için BUY sinyali alındı. Fiyat: {price}. Zaman: {human_readable_time}")
-        elif action == "sell":
-            print(f"{ticker} için SELL sinyali alındı. Fiyat: {price}. Zaman: {human_readable_time}")
-        elif action == "test":
-            print(f"{ticker} için TEST sinyali alındı. Fiyat: {price}. Zaman: {human_readable_time}")
-        else:
-            print(f"Bilinmeyen işlem tipi: {action}. Zaman: {human_readable_time}")
-        
-        return "Webhook başarıyla işlendi!", 200
+        # Mevcut pozisyonu kapat ve kar/zarar hesapla
+        if simulator.current_position:
+            profit = simulator.close_position(price)
+            log_transaction({
+                "type": "close",
+                "profit": profit,
+                "exit_price": price,
+                "time": human_readable_time
+            })
+            print(f"Pozisyon kapatıldı. Kar/Zarar: {profit}. Zaman: {human_readable_time}")
+
+        # Yeni pozisyon aç
+        simulator.open_position("long" if action == "buy" else "short", price)
+        log_transaction({
+            "type": action,
+            "entry_price": price,
+            "balance": simulator.balance,
+            "time": human_readable_time
+        })
+        print(f"{ticker} için {'LONG' if action == 'buy' else 'SHORT'} pozisyon açıldı. Fiyat: {price}. Zaman: {human_readable_time}")
+
+        return {"balance": simulator.balance}, 200
     else:
         return "Unsupported content type! Lütfen JSON formatında veri gönderin.", 400
+
+@app.route('/log', methods=['GET'])
+def get_log():
+    """
+    İşlem geçmişini döndür.
+    """
+    from simulation.transaction_log import get_transaction_log
+    return {"transactions": get_transaction_log()}, 200
 
 @app.route('/', methods=['GET'])
 def index():
